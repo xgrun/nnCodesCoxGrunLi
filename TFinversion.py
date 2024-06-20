@@ -11,6 +11,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split as splitSet
 from sklearn.preprocessing import StandardScaler as SS
 import tensorflow as tf
+import time
 
 columns = ["xsection","incompressability","v1n","v2n","v1p","v2p"] #names for data, explained in Cox, Grundler and Li
 dataset_number = fr"./xytrain90.dat"
@@ -24,14 +25,12 @@ scaling2 = SS()
 xset = dataset[["v1p","v2p"]]
 yset = dataset[["xsection","incompressability"]]
 
+#scale data to be between -1 and 1
+xset = scaling.fit_transform(xset)
+yset = scaling2.fit_transform(yset)
+
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
-
-#scale the training data to be between -1 and 1, then apply that same transformation to the testing data
-xtr = scaling.fit_transform(xtr)
-xte = scaling.transform(xte)
-ytr = scaling2.fit_transform(ytr)
-yte = scaling2.transform(yte)
 
 #configure the model structure, layers and activation
 model = tf.keras.Sequential([
@@ -46,30 +45,42 @@ model.compile(optimizer = 'adam',
               loss = tf.keras.losses.MeanSquaredError(),
               metrics = ['mse'])
 
+start = time.perf_counter() #begin counter for training model
+
 #train the model
 model.fit(xtr, ytr, epochs = 250)
+
+end = time.perf_counter() #end counter for training model
+
+print("Time to train model: ",end-start,"s") #print time to train model
 
 #test model
 tloss,tacc = model.evaluate(xte,yte,verbose=2)
 print(tloss,tacc) #output loss and metrics from testing the model
 
+start = time.perf_counter() #begin counter to time how long it takes to make a prediction
+
 #make predictions with the model
-predictions = model.predict(xte)
+pred = model.predict(xte)
+
+end = time.perf_counter() #end counter
 
 #score the model
-sse = np.sum(np.square(predictions - yte))
+sse = np.sum(np.square(pred - yte))
 tss = np.sum(np.square(yte-yte.mean()))
 r2_score = 1-sse/tss
-residues = yte - predictions
 print("R^2=",r2_score)
 
 #rescale predictions and test data for graphing
-predictions = scaling2.inverse_transform(predictions)
-predX = predictions[:,0]
-predK = predictions[:,1]
+pred = scaling2.inverse_transform(pred)
+predX = pred[:,0]
+predK = pred[:,1]
 true = scaling2.inverse_transform(yte)
 trueX = true[:,0]
 trueK = true[:,1]
+
+numPred = np.size(predX)
+print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
 #prediction vs. perfection for X, graph
 plt.figure()
@@ -88,6 +99,26 @@ plt.xlabel(r"Predicted K (MeV)")
 plt.ylabel(r"True K (MeV)")
 plt.legend(loc = 'upper left',fontsize = 8)
 plt.savefig(f"graphOfK.pdf",format="pdf")
+
+#calculate emulator error for test data set
+dnnError = np.zeros(numPred)
+predCount = np.zeros(numPred)
+for i in range(numPred):
+    dnnError[i] = (pred[i,0] - true[i,0])**2 + (pred[i,1]/200 - true[i,1]/200)**2 #divide K values by 200 to bring it to the same order of magnitude as X
+    predCount[i] = i + 1
+
+#calculate MSE for test set
+mseTest = np.sum(dnnError)/numPred
+print("numPred = ",numPred)
+print("MSE_test = ",mseTest)
+
+#plot error
+plt.figure()
+plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.round(mseTest,5)}")
+plt.xlabel(r"Prediction Number")
+plt.ylabel(r"DNN Error")
+plt.legend(loc = 'upper left',fontsize = 8)
+plt.savefig(f'predError.pdf',format = 'pdf')
 
 #find the importance of each input feature (column) in determining the output
 permutationarray = np.zeros([1,2])
