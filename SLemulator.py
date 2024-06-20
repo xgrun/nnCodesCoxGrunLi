@@ -27,14 +27,12 @@ scaling2 = MAS()
 xset = dataset[["xsection","incompressability"]].to_numpy()
 yset = dataset[["v1p","v2p"]].to_numpy()
 
+#scale the training data to be between -1 and 1, then apply that same transformation to the testing data
+xset = scaling.fit_transform(xset)
+yset = scaling2.fit_transform(yset)
+
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
-
-#scale the training data to be between -1 and 1, then apply that same transformation to the testing data
-xtr = scaling.fit_transform(xtr)
-xte = scaling.transform(xte)
-ytr = scaling2.fit_transform(ytr)
-yte = scaling2.transform(yte)
 
 #configure multi-layer perceptron regressor and train it
 model = MLPRegressor(hidden_layer_sizes=(2,6,6,2), activation = 'tanh', solver= 'lbfgs', verbose = True, max_iter = 80).fit(xtr,ytr)
@@ -79,6 +77,22 @@ plt.xlabel(r"Predicted $v_2$")
 plt.ylabel(r"True $v_2$")
 plt.legend(loc = 'upper left',fontsize = 8)
 plt.savefig(f'graphOfv2.pdf',format = 'pdf')
+
+#calculate emulator error for entire data set
+yset = scaling2.inverse_transform(yset)
+fullPred = scaling2.inverse_transform(model.predict(xset).reshape(-1,2))
+dnnError = np.zeros(89)
+runNum = np.zeros(89)
+for i in range(89):
+    dnnError[i] = (fullPred[i,0] - yset[i,0])**2 + (fullPred[i,1] - yset[i,1])**2
+    runNum[i] = i + 1
+
+#plot error
+plt.figure()
+plt.scatter(runNum,dnnError,facecolors = 'none',edgecolors = 'red')
+plt.xlabel(r"Run Number")
+plt.ylabel(r"DNN Error")
+plt.savefig(f'predError.pdf',format = 'pdf')
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
