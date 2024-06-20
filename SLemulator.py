@@ -92,7 +92,7 @@ plt.ylabel(r"True $v_2$")
 plt.legend(loc = 'upper left',fontsize = 8)
 plt.savefig(f'graphOfv2.pdf',format = 'pdf')
 
-#calculate emulator error for entire data set
+#calculate emulator error for test data set
 dnnError = np.zeros(numPred)
 predCount = np.zeros(numPred)
 for i in range(numPred):
@@ -113,5 +113,5 @@ plt.legend(loc = 'upper left',fontsize = 8)
 plt.savefig(f'predError.pdf',format = 'pdf')
 
 #write the configuration of the model
-with open("modelConfigurationSLemu.txt","w") as modConfig:
+with open("modelConfiguration.txt","w") as modConfig:
     print(model.get_params(),file=modConfig)
