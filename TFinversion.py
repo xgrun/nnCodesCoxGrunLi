@@ -25,7 +25,7 @@ scaling2 = SS()
 xset = dataset[["v1p","v2p"]]
 yset = dataset[["xsection","incompressability"]]
 
-#scale data to be between -1 and 1
+#scale data
 xset = scaling.fit_transform(xset)
 yset = scaling2.fit_transform(yset)
 
