@@ -92,11 +92,15 @@ plt.ylabel(r"True K (MeV)")
 plt.legend(loc = 'upper left',fontsize = 8)
 plt.savefig(f'graphOfK.pdf',format = 'pdf')
 
+#find mean of true values in test data set
+meanX = np.sum(true[:,0])/numPred
+meanK = np.sum(true[:,1])/numPred
+
 #calculate inversion error for test data set
 dnnError = np.zeros(numPred)
 predCount = np.zeros(numPred)
 for i in range(numPred):
-    dnnError[i] = (pred[i,0] - true[i,0])**2 + (pred[i,1]/200 - true[i,1]/200)**2 #K values divided by 200 so it's the same order of magnitude as X
+    dnnError[i] = (pred[i,0]/meanX - true[i,0]/meanX)**2 + (pred[i,1]/meanK - true[i,1]/meanK)**2 #all values divided by the mean of the true test data because X and K have different orders of magnitude
     predCount[i] = i + 1
 
 #calculate inversion error for test data set
