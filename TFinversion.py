@@ -5,17 +5,30 @@ Description: Code for training and testing a deep neural network for an inversio
 """
 
 #import TensorFlow and supporting packages, Scikit-Learn used for preprocessing
+import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split as splitSet
 from sklearn.preprocessing import StandardScaler as SS
+import os
+import sys
 import tensorflow as tf
 import time
 
 columns = ["xsection","incompressability","v1n","v2n","v1p","v2p"] #names for data, explained in Cox, Grundler and Li
 dataset_number = fr"./xytrain90.dat"
 dataset = pd.read_csv(dataset_number, sep = ',', names = columns)
+
+#change and make directory for output
+os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/TFinv")
+now = dt.datetime.now()
+os.makedirs(f"./trial_{now}")
+os.chdir(f"./trial_{now}")
+
+#set print options
+sys.stdout = open("out.txt","w")
+np.set_printoptions(threshold=np.inf)
 
 #this scaling removes the mean and scales data to unit variance
 scaling = SS()
@@ -31,6 +44,12 @@ yset = scaling2.fit_transform(yset)
 
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
+
+#record training and testing data
+trainDF = pd.DataFrame({"xtrX":xtr[:,0],"ytrX":ytr[:,0],"xtrK":xtr[:,1],"ytrK":ytr[:,1]})
+trainDF.to_csv("train.csv")
+testDF = pd.DataFrame({"xteX":xte[:,0],"yteX":yte[:,0],"xteK":xte[:,1],"yteK":yte[:,1]})
+testDF.to_csv("test.csv")
 
 #configure the model structure, layers and activation
 model = tf.keras.Sequential([
@@ -82,22 +101,26 @@ trueK = true[:,1]
 numPred = np.size(predX)
 print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
+#record unscaled data
+unscaledData = pd.DataFrame({"trueX":trueX,"predX":predX,"trueK":trueK,"predK":predK})
+unscaledData.to_csv("unscaledData.csv")
+
 #prediction vs. perfection for X, graph
 plt.figure()
 plt.plot(predX,predX,color = "red")
 plt.scatter(predX,trueX,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(r2_score,3)}")
-plt.xlabel(r"Predicted X")
-plt.ylabel(r"True X")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.xlabel(r"X (TensorFlow)",fontsize = 12)
+plt.ylabel(r"X (IBUU simulation)",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f"graphOfX.pdf",format="pdf")
 
 #prediction vs. perfection for K, graph
 plt.figure()
 plt.plot(predK,predK,color = "red")
-plt.scatter(predK,trueK,facecolors = 'none',edgecolors = 'black',label = F"R2 {np.round(r2_score,3)}")
-plt.xlabel(r"Predicted K (MeV)")
-plt.ylabel(r"True K (MeV)")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.scatter(predK,trueK,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(r2_score,3)}")
+plt.xlabel(r"K (MeV) (TensorFlow)",fontsize = 12)
+plt.ylabel(r"K (MeV) (IBUU simulation)",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f"graphOfK.pdf",format="pdf")
 
 #find mean of true values in test data set
@@ -118,10 +141,11 @@ print("MSE_test = ",mseTest)
 
 #plot error
 plt.figure()
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.round(mseTest,5)}")
-plt.xlabel(r"Prediction Number")
-plt.ylabel(r"DNN Error")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
+plt.xlabel(r"TensorFlow Prediction Number",fontsize = 12)
+plt.ylabel(r"DNN Error",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'predError.pdf',format = 'pdf')
 
 #find the importance of each input feature (column) in determining the output
@@ -138,3 +162,5 @@ for n in range(2):
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
     print(model.get_config(),file=modConfig)
+
+sys.stdout.close()

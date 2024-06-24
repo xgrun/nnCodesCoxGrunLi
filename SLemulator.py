@@ -19,7 +19,7 @@ import sys
 import time
 from eli5.sklearn import PermutationImportance
 
-columns = ["xsection","incompressability","v1n","v2n","v1p","v2p"] #names for data, explained in Cox, Grundler and Li
+columns = ["xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
 datasetDirectory = fr"./xytrain90.dat"
 dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
 
@@ -37,9 +37,9 @@ np.set_printoptions(threshold=np.inf)
 scaling = MAS()
 scaling2 = MAS()
 
-#for emulation, the inputs are X and K and the outputs are v1 and v2
+#for emulation, the inputs are X and K and the outputs are F1 and v2
 xset = dataset[["xsection","incompressability"]].to_numpy()
-yset = dataset[["v1p","v2p"]].to_numpy()
+yset = dataset[["F1p","v2p"]].to_numpy()
 
 #scale data
 xset = scaling.fit_transform(xset)
@@ -48,10 +48,11 @@ yset = scaling2.fit_transform(yset)
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
 
-#write down training and testing data
-with open("trainTestSplit.txt","w") as split:
-    print("Training Data:\n",xtr,ytr,file=split)
-    print("\n\n\nTest Data:\n",xte,yte,file=split)
+#record training and testing data
+trainDF = pd.DataFrame({"xtrX":xtr[:,0],"ytrX":ytr[:,0],"xtrK":xtr[:,1],"ytrK":ytr[:,1]})
+trainDF.to_csv("train.csv")
+testDF = pd.DataFrame({"xteX":xte[:,0],"yteX":yte[:,0],"xteK":xte[:,1],"yteK":yte[:,1]})
+testDF.to_csv("test.csv")
 
 start = time.perf_counter() #begin counter for training model
 
@@ -75,7 +76,7 @@ print("score:",score)
 
 #rescale test data for graphing
 truev = scaling2.inverse_transform(yte)
-truev1 = truev[:,0]
+trueF1 = truev[:,0]
 truev2 = truev[:,1]
 
 start = time.perf_counter() #begin counter to time how long it takes to make a prediction
@@ -84,33 +85,33 @@ pred = scaling2.inverse_transform(model.predict(xte).reshape(-1,2)) #make predic
 
 end = time.perf_counter() #end counter
 
-predv1 = pred[:,0] #divide into v1 and v2
+predF1 = pred[:,0] #divide into F1 and v2
 predv2 = pred[:,1]
-perfLinev1 = np.linspace(np.min(predv1) - .05*np.min(predv1), np.max(predv1) + .05*np.max(predv1)) #make lines of perfection
+perfLineF1 = np.linspace(np.min(predF1) - .05*np.min(predF1), np.max(predF1) + .05*np.max(predF1)) #make lines of perfection
 perfLinev2 = np.linspace(np.min(predv2) - .05*np.min(predv2), np.max(predv2) + .05*np.max(predv2))
 
-numPred = np.size(predv1)
+numPred = np.size(predF1)
 print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
-#print unscaled Data
-unscaledData = pd.DataFrame({"truev1":truev1,"predv1":predv1,"truev2":truev2,"predv2":predv2})
+#record unscaled data
+unscaledData = pd.DataFrame({"trueF1":trueF1,"predF1":predF1,"truev2":truev2,"predv2":predv2})
 unscaledData.to_csv("unscaledData.csv")
 
-#prediction vs. perfection for v1, graph
+#prediction vs. perfection for F1, graph
 plt.figure()
-plt.plot(perfLinev1,perfLinev1,color = 'red')
-plt.scatter(predv1,truev1,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
-plt.xlabel(r"Predicted $v_1$")
-plt.ylabel(r"True $v_1$")
+plt.plot(perfLineF1,perfLineF1,color = 'red')
+plt.scatter(predF1,trueF1,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
+plt.xlabel(r"$F_1$ (Scikit-Learn)",fontsize = 12)
+plt.ylabel(r"$F_1$ (IBUU simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
-plt.savefig(f'graphOfv1.pdf',format = 'pdf')
+plt.savefig(f'graphOfF1.pdf',format = 'pdf')
 
 #prediction vs. perfection for v2, graph
 plt.figure()
 plt.plot(perfLinev2,perfLinev2,color = 'red')
 plt.scatter(predv2,truev2,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
-plt.xlabel(r"Predicted $v_2$")
-plt.ylabel(r"True $v_2$")
+plt.xlabel(r"$v_2$ (Scikit-Learn)",fontsize = 12)
+plt.ylabel(r"$v_2$ (IBUU simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfv2.pdf',format = 'pdf')
 
@@ -130,8 +131,8 @@ print("MSE_test = ",mseTest)
 plt.figure()
 plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
 plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
-plt.xlabel(r"Prediction Number")
-plt.ylabel(r"DNN Error")
+plt.xlabel(r"Scikit-Learn Prediction Number",fontsize = 12)
+plt.ylabel(r"DNN Error",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'predError.pdf',format = 'pdf')
 

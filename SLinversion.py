@@ -5,6 +5,7 @@ Description: Code for training and testing a deep neural network for an inversio
 """
 
 #import Scikit-Learn and supporting packages
+import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,19 +14,32 @@ from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import make_scorer
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler as SS
+import os
+import sys
 import time
 from eli5.sklearn import PermutationImportance
 
-columns = ["xsection","incompressability","v1n","v2n","v1p","v2p"] #names for data, explained in Cox, Grundler and Li
+columns = ["xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
 datasetDirectory = fr"./xytrain90.dat"
 dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
+
+#change and make directory for output
+os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/SLinv")
+now = dt.datetime.now()
+os.makedirs(f"./trial_{now}")
+os.chdir(f"./trial_{now}")
+
+#set print options
+sys.stdout = open("out.txt","w")
+np.set_printoptions(threshold=np.inf)
+
 
 #this scaling removes the mean and scales data to unit variance
 scaling = SS()
 scaling2 = SS()
 
-#for inversion, the inputs are v1 and v2 and the outputs are X and K
-xset = dataset[["v1p","v2p"]].to_numpy()
+#for inversion, the inputs are F1 and v2 and the outputs are X and K
+xset = dataset[["F1p","v2p"]].to_numpy()
 yset = dataset[["xsection","incompressability"]].to_numpy()
 
 #scale data
@@ -34,6 +48,12 @@ yset = scaling2.fit_transform(yset)
 
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
+
+#record training and testing data
+trainDF = pd.DataFrame({"xtrX":xtr[:,0],"ytrX":ytr[:,0],"xtrK":xtr[:,1],"ytrK":ytr[:,1]})
+trainDF.to_csv("train.csv")
+testDF = pd.DataFrame({"xteX":xte[:,0],"yteX":yte[:,0],"xteK":xte[:,1],"yteK":yte[:,1]})
+testDF.to_csv("test.csv")
 
 start = time.perf_counter() #begin counter for training model
 
@@ -48,8 +68,8 @@ print("Time to train model: ",end-start,"s") #print time to train model
 perm = PermutationImportance(model, random_state = 133239, n_iter = 30, scoring = make_scorer(mse)).fit(xtr,ytr)
 importantFeats = perm.feature_importances_
 importantStd = perm.feature_importances_std_
-print("feature_importances [v1,v2]:",importantFeats)
-print("feature_importances_std [v1,v2]:",importantStd)
+print("feature_importances [F1,v2]:",importantFeats)
+print("feature_importances_std [F1,v2]:",importantStd)
 
 #test model accuracy
 score = model.score(xte, yte) #R^2=1-SSE/TSS
@@ -74,22 +94,26 @@ perfLinek = np.linspace(np.min(predk) - .05*np.min(predk), np.max(predk) + .05*n
 numPred = np.size(predx)
 print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
+#record unscaled data
+unscaledData = pd.DataFrame({"truex":truex,"predx":predx,"truek":truek,"predk":predk})
+unscaledData.to_csv("unscaledData.csv")
+
 #prediction vs. perfection for X, graph
 plt.figure()
 plt.plot(perfLinex,perfLinex, color = 'red')
 plt.scatter(predx,truex,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
-plt.xlabel(r"Predicted X")
-plt.ylabel(r"True X")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.xlabel(r"X (Scikit-Learn)",fontsize = 12)
+plt.ylabel(r"X (IBUU simulation)",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfX.pdf',format = 'pdf')
 
 #prediction vs. perfection for K, graph
 plt.figure()
 plt.plot(perfLinek,perfLinek,color = 'red')
 plt.scatter(predk,truek,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
-plt.xlabel(r"Predicted K (MeV)")
-plt.ylabel(r"True K (MeV)")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.xlabel(r"K (MeV) (Scikit-Learn)",fontsize = 12)
+plt.ylabel(r"K (MeV) (IBUU simulation)",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfK.pdf',format = 'pdf')
 
 #find mean of true values in test data set
@@ -110,12 +134,15 @@ print("MSE_test = ",mseTest)
 
 #plot error
 plt.figure()
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.round(mseTest,5)}")
-plt.xlabel(r"Prediction Number")
-plt.ylabel(r"DNN Error")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
+plt.xlabel(r"Scikit-Learn Prediction Number",fontsize = 12)
+plt.ylabel(r"DNN Error",fontsize = 12)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'predError.pdf',format = 'pdf')
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
     print(model.get_params(),file=modConfig)
+
+sys.stdout.close()
