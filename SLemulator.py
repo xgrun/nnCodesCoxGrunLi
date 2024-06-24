@@ -5,6 +5,7 @@ Description: Code for training and testing a deep neural networkas an emulator u
 """
 
 #import Scikit-Learn and supporting packages
+import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,12 +14,24 @@ from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import make_scorer
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import MaxAbsScaler as MAS
+import os
+import sys
 import time
 from eli5.sklearn import PermutationImportance
 
 columns = ["xsection","incompressability","v1n","v2n","v1p","v2p"] #names for data, explained in Cox, Grundler and Li
 datasetDirectory = fr"./xytrain90.dat"
 dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
+
+#change and make directory for output
+os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/SLemu")
+now = dt.datetime.now()
+os.makedirs(f"./trial_{now}")
+os.chdir(f"./trial_{now}")
+
+#set print options
+sys.stdout = open("out.txt","w")
+np.set_printoptions(threshold=np.inf)
 
 #this scaling divides each column in a numpy array by its largest value, designed to maintain sparsity in datasets during preprocessing
 scaling = MAS()
@@ -34,6 +47,11 @@ yset = scaling2.fit_transform(yset)
 
 #split data: 75% training, 25% testing
 xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
+
+#write down training and testing data
+with open("trainTestSplit.txt","w") as split:
+    print("Training Data:\n",xtr,ytr,file=split)
+    print("\n\n\nTest Data:\n",xte,yte,file=split)
 
 start = time.perf_counter() #begin counter for training model
 
@@ -74,13 +92,17 @@ perfLinev2 = np.linspace(np.min(predv2) - .05*np.min(predv2), np.max(predv2) + .
 numPred = np.size(predv1)
 print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
+#print unscaled Data
+unscaledData = pd.DataFrame({"truev1":truev1,"predv1":predv1,"truev2":truev2,"predv2":predv2})
+unscaledData.to_csv("unscaledData.csv")
+
 #prediction vs. perfection for v1, graph
 plt.figure()
 plt.plot(perfLinev1,perfLinev1,color = 'red')
 plt.scatter(predv1,truev1,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
 plt.xlabel(r"Predicted $v_1$")
 plt.ylabel(r"True $v_1$")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfv1.pdf',format = 'pdf')
 
 #prediction vs. perfection for v2, graph
@@ -89,7 +111,7 @@ plt.plot(perfLinev2,perfLinev2,color = 'red')
 plt.scatter(predv2,truev2,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
 plt.xlabel(r"Predicted $v_2$")
 plt.ylabel(r"True $v_2$")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfv2.pdf',format = 'pdf')
 
 #calculate emulator error for test data set
@@ -106,12 +128,15 @@ print("MSE_test = ",mseTest)
 
 #plot error
 plt.figure()
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.round(mseTest,5)}")
+plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
 plt.xlabel(r"Prediction Number")
 plt.ylabel(r"DNN Error")
-plt.legend(loc = 'upper left',fontsize = 8)
+plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'predError.pdf',format = 'pdf')
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
     print(model.get_params(),file=modConfig)
+
+sys.stdout.close()
