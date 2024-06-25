@@ -4,7 +4,7 @@ Authors: Nicholas Cox and Xavier Grundler
 Description: Code for training and testing a deep neural network for an inversion problem using the Scikit-Learn package. Also produces graphs of the results.
 """
 
-#import Scikit-Learn and supporting packages
+#import Scikit-Learn (Scikit-learn: Machine Learning in Python, Pedregosa et al., JMLR 12, pp.2825-2830, 2011) and supporting packages
 import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np

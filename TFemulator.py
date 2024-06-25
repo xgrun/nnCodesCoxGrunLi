@@ -4,7 +4,9 @@ Authors: Nicholas Cox and Xavier Grundler
 Description: Code for training and testing a deep neural network as an emulator using the TensorFlow package with Keras as the backend. Also produces graphs of the results.
 """
 
-#import TensorFlow and supporting packages, Scikit-Learn used for preprocessing
+#import TensorFlow (TensorFlow: Large-scale machine learning on heterogeneous systems, Abadi et al., software available from tensorflow.org, 2015) and supporting packages
+#Keras (Keras, Chollet, https://github.com/fchollet/keras, 2015) used as backend for Tensorflow
+#Scikit-Learn (Scikit-learn: Machine Learning in Python, Pedregosa et al., JMLR 12, pp. 2825-2830, 2011) used for preprocessing
 import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np

@@ -4,7 +4,7 @@ Authors: Nicholas Cox and Xavier Grundler
 Description: Code for training and testing a deep neural networkas an emulator using the Scikit-Learn package. Also produces graphs of the results.
 """
 
-#import Scikit-Learn and supporting packages
+#import Scikit-Learn (Scikit-learn: Machine Learning in Python, Perdgosa et al., JMLR 12, pp.2825-2830, 2011) and supporting packages
 import datetime as dt
 import matplotlib.pyplot as plt
 import numpy as np
