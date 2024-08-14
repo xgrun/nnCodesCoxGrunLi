@@ -19,9 +19,9 @@ import sys
 import time
 from eli5.sklearn import PermutationImportance
 
-columns = ["xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
-datasetDirectory = fr"./xytrain90.dat"
-dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
+columns = ["i","xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
+trainData = pd.read_csv(fr"./trainingData.txt",names = columns)
+testData = pd.read_csv(fr"./trainingData.txt",names = columns)
 
 #change and make directory for output
 os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/SLinv")
@@ -33,32 +33,26 @@ os.chdir(f"./trial_{now}")
 sys.stdout = open("out.txt","w")
 np.set_printoptions(threshold=np.inf)
 
-
 #this scaling removes the mean and scales data to unit variance
 scaling = SS()
 scaling2 = SS()
 
-#for inversion, the inputs are F1 and v2 and the outputs are X and K
-xset = dataset[["F1p","v2p"]].to_numpy()
-yset = dataset[["xsection","incompressability"]].to_numpy()
+#seperate input and output parameters
+xtr = trainData[["F1p","v2p"]].to_numpy()
+ytr = trainData[["xsection","incompressability"]].to_numpy()
+xte = testData[["F1p","v2p"]].to_numpy()
+yte = testData[["xsection","incompressability"]].to_numpy()
 
 #scale data
-xset = scaling.fit_transform(xset)
-yset = scaling2.fit_transform(yset)
-
-#split data: 75% training, 25% testing
-xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
-
-#record training and testing data
-trainDF = pd.DataFrame({"xtrX":xtr[:,0],"ytrX":ytr[:,0],"xtrK":xtr[:,1],"ytrK":ytr[:,1]})
-trainDF.to_csv("train.csv")
-testDF = pd.DataFrame({"xteX":xte[:,0],"yteX":yte[:,0],"xteK":xte[:,1],"yteK":yte[:,1]})
-testDF.to_csv("test.csv")
+xtr = scaling.fit_transform(xtr)
+ytr = scaling2.fit_transform(ytr)
+xte = scaling.transform(xte)
+yte = scaling2.transform(yte)
 
 start = time.perf_counter() #begin counter for training model
 
 #configure multi-layer perceptron regressor and train it
-model = MLPRegressor(hidden_layer_sizes=(2,6,6,2), activation = 'tanh', solver= 'lbfgs', verbose = True, max_iter = 150).fit(xtr,ytr)
+model = MLPRegressor(hidden_layer_sizes=(2,6,6,2), activation = 'tanh', solver= 'lbfgs', verbose = True, max_iter = 150, random_state = 7).fit(xtr,ytr)
 
 end = time.perf_counter() #edn counter for training model
 
@@ -123,14 +117,23 @@ meanK = np.sum(true[:,1])/numPred
 #calculate inversion error for test data set
 dnnError = np.zeros(numPred)
 predCount = np.zeros(numPred)
+XMSE = 0
+KMSE = 0
 for i in range(numPred):
     dnnError[i] = (pred[i,0]/meanX - true[i,0]/meanX)**2 + (pred[i,1]/meanK - true[i,1]/meanK)**2 #all values divided by the mean of the true test data because X and K have different orders of magnitude
     predCount[i] = i + 1
+    XMSE += (pred[i,0] - true[i,0])**2
+    KMSE += (pred[i,1] - true[i,1])**2
 
 #calculate inversion error for test data set
 mseTest = np.sum(dnnError)/numPred
+XMSE /= numPred
+KMSE /= numPred
+
 print("numPred = ",numPred)
 print("MSE_test = ",mseTest)
+print("X MSE = ",XMSE)
+print("K MSE = ",KMSE)
 
 #plot error
 plt.figure()
