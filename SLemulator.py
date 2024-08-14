@@ -13,15 +13,15 @@ from sklearn.model_selection import train_test_split as splitSet
 from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import make_scorer
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import MaxAbsScaler as MAS
+from sklearn.preprocessing import StandardScaler as SS
 import os
 import sys
 import time
 from eli5.sklearn import PermutationImportance
 
-columns = ["xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
-datasetDirectory = fr"./xytrain90.dat"
-dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
+columns = ["i","xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
+trainData = pd.read_csv(fr"./trainingData.txt",names = columns)
+testData = pd.read_csv(fr"./testingData.txt",names = columns)
 
 #change and make directory for output
 os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/SLemu")
@@ -30,29 +30,24 @@ os.makedirs(f"./trial_{now}")
 os.chdir(f"./trial_{now}")
 
 #set print options
-sys.stdout = open("out.txt","w")
+sys.stdout = open("out.log","w")
 np.set_printoptions(threshold=np.inf)
 
-#this scaling divides each column in a numpy array by its largest value, designed to maintain sparsity in datasets during preprocessing
-scaling = MAS()
-scaling2 = MAS()
+#this scaling removes the mean and scales data to unit variance
+scaling = SS()
+scaling2 = SS()
 
-#for emulation, the inputs are X and K and the outputs are F1 and v2
-xset = dataset[["xsection","incompressability"]].to_numpy()
-yset = dataset[["F1p","v2p"]].to_numpy()
+#separate input and output parameters
+xtr = trainData[["xsection","incompressability"]].to_numpy()
+ytr = trainData[["F1p","v2p"]].to_numpy()
+xte = testData[["xsection","incompressability"]].to_numpy()
+yte = testData[["F1p","v2p"]].to_numpy()
 
 #scale data
-xset = scaling.fit_transform(xset)
-yset = scaling2.fit_transform(yset)
-
-#split data: 75% training, 25% testing
-xtr, xte, ytr, yte = splitSet(xset, yset, test_size = .25)
-
-#record training and testing data
-trainDF = pd.DataFrame({"xtrX":xtr[:,0],"ytrX":ytr[:,0],"xtrK":xtr[:,1],"ytrK":ytr[:,1]})
-trainDF.to_csv("train.csv")
-testDF = pd.DataFrame({"xteX":xte[:,0],"yteX":yte[:,0],"xteK":xte[:,1],"yteK":yte[:,1]})
-testDF.to_csv("test.csv")
+xtr = scaling.fit_transform(xtr)
+ytr = scaling2.fit_transform(ytr)
+xte = scaling.transform(xte)
+yte = scaling2.transform(yte)
 
 start = time.perf_counter() #begin counter for training model
 
@@ -118,14 +113,23 @@ plt.savefig(f'graphOfv2.pdf',format = 'pdf')
 #calculate emulator error for test data set
 dnnError = np.zeros(numPred)
 predCount = np.zeros(numPred)
+F1MSE = 0
+v2MSE = 0
 for i in range(numPred):
     dnnError[i] = (pred[i,0] - truev[i,0])**2 + (pred[i,1] - truev[i,1])**2
     predCount[i] = i + 1
+    F1MSE += (pred[i,0] - truev[i,0])**2
+    v2MSE += (pred[i,1] - truev[i,1])**2
 
 #calculate MSE for test set
 mseTest = np.sum(dnnError)/numPred
+F1MSE /= numPred
+v2MSE /= numPred
+
 print("numPred = ",numPred)
 print("MSE_test = ",mseTest)
+print("F1 MSE = ",F1MSE)
+print("v2 MSE = ",v2MSE)
 
 #plot error
 plt.figure()
