@@ -17,7 +17,6 @@ from sklearn.preprocessing import StandardScaler as SS
 import os
 import sys
 import time
-from eli5.sklearn import PermutationImportance
 
 columns = ["xsection","incompressability","F1n","v2n","F1p","v2p"] #names for data, explained in Cox, Grundler and Li
 datasetDirectory = fr"./xytrain90.dat"
@@ -63,13 +62,6 @@ model = MLPRegressor(hidden_layer_sizes=(2,6,6,2), activation = 'tanh', solver= 
 end = time.perf_counter() #edn counter for training model
 
 print("Time to train model: ",end-start,"s") #print time to train model
-
-#find the importance and standard deviation of each input feature (column) in determining the output using eli5
-perm = PermutationImportance(model, random_state = 133239, n_iter = 30, scoring = make_scorer(mse)).fit(xtr,ytr)
-importantFeats = perm.feature_importances_
-importantStd = perm.feature_importances_std_
-print("feature_importances [F1,v2]:",importantFeats)
-print("feature_importances_std [F1,v2]:",importantStd)
 
 #test model accuracy
 score = model.score(xte, yte) #R^2=1-SSE/TSS

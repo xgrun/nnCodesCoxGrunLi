@@ -150,17 +150,6 @@ plt.ylabel(r"DNN Error",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'predError.pdf',format = 'pdf')
 
-#find the importance of each input feature (column) in determining the output
-permutationarray = np.zeros([1,2])
-for n in range(2):
-    permutationarray[0,n] = 1
-    permutationimportance = model.predict(permutationarray)
-    permutationarray[0,n] = 0
-    if n == 0:
-        print("v1p importance = ", permutationimportance)
-    else:
-        print("v2p importance = ", permutationimportance)
-
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
     print(model.get_config(),file=modConfig)
