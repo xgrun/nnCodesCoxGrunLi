@@ -125,30 +125,42 @@ plt.ylabel(r"K (MeV) (IBUU simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f"graphOfK.pdf",format="pdf")
 
-#find mean of true values in test data set
-meanX = np.sum(true[:,0])/numPred
-meanK = np.sum(true[:,1])/numPred
+#calculate variance of DNN and IBUU predictions
+varTrueX = np.var(trueX,ddof=1)
+varPredX = np.var(predX,ddof=1)
+varTrueK = np.var(trueK,ddof=1)
+varPredK = np.var(predK,ddof=1)
 
-#calculate emulator error for test data set
-dnnError = np.zeros(numPred)
-predCount = np.zeros(numPred)
+#calculate sum ov variances
+sumVarX = varTrueX + varPredX
+sumVarK = varTrueK + varPredK
+
+#initialize arrays for recording DNN error
+dnnErrorX = np.zeros(numPred)
+dnnErrorK = np.zeros(numPred)
+predCount = np.zeros(numPred) #for plotting DNN error as function of run number
+
+#calculate DNN error for each prediction and sum of squared errors
 for i in range(numPred):
-    dnnError[i] = (pred[i,0]/meanX - true[i,0]/meanX)**2 + (pred[i,1]/meanK - true[i,1]/meanK)**2 #all values divided by the mean of the true test data because X and K have different orders of magnitude
+    dnnErrorX[i] = ((predX[i] - trueX[i])**2)/sumVarX
+    dnnErrorK[i] = ((predK[i] - trueK[i])**2)/sumVarK
     predCount[i] = i + 1
 
-#calculate MSE for test set
-mseTest = np.sum(dnnError)/numPred
 print("numPred = ",numPred)
-print("MSE_test = ",mseTest)
 
-#plot error
-plt.figure()
-plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
-plt.xlabel(r"TensorFlow Prediction Number",fontsize = 12)
-plt.ylabel(r"DNN Error",fontsize = 12)
-plt.legend(loc = 'upper left',fontsize = 12)
-plt.savefig(f'predError.pdf',format = 'pdf')
+#plot DNN error
+fig, (axX, axK) = plt.subplots(2,sharex=True) #two subplots with shared x axis
+
+axX.scatter(predCount,dnnErrorX,facecolors='none',edgecolors='red') #make scatter plot for X
+axX.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axX.set_ylabel(F"DNN Error X",fontsize=12) #set y axis title
+
+axK.scatter(predCount,dnnErrorK,facecolors='none',edgecolors='red') #make scatter plot for K
+axK.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axK.set_xlabel(F"TensorFlow Prediction Number",fontsize=12) #set x axis title
+axK.set_ylabel(F"DNN Error K",fontsize=12) #set y axis title
+
+fig.savefig(f'predError.pdf',format='pdf') #save plot
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
