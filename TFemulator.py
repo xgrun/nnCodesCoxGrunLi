@@ -152,6 +152,10 @@ for i in range(numPred):
     msev2 += (predv2[i] - truev2[i])**2
     predCount[i] = i + 1
 
+#save DNN error in csv
+dnnDF = pd.DataFrame({"dnnErrorF1":dnnErrorF1,"dnnErrorv2":dnnErrorv2})
+dnnDF.to_csv(f"dnnError.csv")
+
 #finish MSE calculation
 mseF1 /= numPred
 msev2 /= numPred

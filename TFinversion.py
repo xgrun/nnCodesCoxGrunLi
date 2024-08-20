@@ -146,6 +146,10 @@ for i in range(numPred):
     dnnErrorK[i] = ((predK[i] - trueK[i])**2)/sumVarK
     predCount[i] = i + 1
 
+#save DNN error in csv
+dnnDF = pd.DataFrame({"dnnErrorX":dnnErrorX,"dnnErrorK":dnnErrorK})
+dnnDF.to_csv(f"dnnError.csv")
+
 print("numPred = ",numPred)
 
 #plot DNN error
