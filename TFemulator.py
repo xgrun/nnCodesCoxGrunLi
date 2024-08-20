@@ -23,13 +23,13 @@ dataset_number = fr"./xytrain90.dat"
 dataset = pd.read_csv(dataset_number, sep = ',', names = columns)
 
 #change and make directory for output
-os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/TFemu")
+os.chdir(sys.argv[1]) #target directory passed from command line
 now = dt.datetime.now()
 os.makedirs(f"./trial_{now}")
 os.chdir(f"./trial_{now}")
 
 #set print options
-sys.stdout = open("out.txt","w")
+sys.stdout = open("out.log","w")
 np.set_printoptions(threshold=np.inf)
 
 #this scaling removes the mean and scales data to unit variance
