@@ -23,13 +23,13 @@ datasetDirectory = fr"./xytrain90.dat"
 dataset = pd.read_csv(datasetDirectory, sep = ',', names = columns)
 
 #change and make directory for output
-os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/SLinv")
+os.chdir(sys.argv[1]) #target directory passed from command line
 now = dt.datetime.now()
 os.makedirs(f"./trial_{now}")
 os.chdir(f"./trial_{now}")
 
 #set print options
-sys.stdout = open("out.txt","w")
+sys.stdout = open("out.log","w")
 np.set_printoptions(threshold=np.inf)
 
 
@@ -69,8 +69,8 @@ print("score:",score)
 
 #rescale test data for graphing
 true = scaling2.inverse_transform(yte)
-truex = true[:,0]
-truek = true[:,1]
+trueX = true[:,0]
+trueK = true[:,1]
 
 start = time.perf_counter() #begin counter to time how long it takes to make a prediction
 
@@ -78,22 +78,22 @@ pred = scaling2.inverse_transform(model.predict(xte).reshape(-1,2)) #make predic
 
 end = time.perf_counter() #end counter
 
-predx = pred[:,0] #divide into X and K
-predk = pred[:,1]
-perfLinex = np.linspace(np.min(predx) - .05*np.min(predx), np.max(predx) + .05*np.max(predx)) #make lines of perfection
-perfLinek = np.linspace(np.min(predk) - .05*np.min(predk), np.max(predk) + .05*np.max(predk))
+predX = pred[:,0] #divide into X and K
+predK = pred[:,1]
+perfLinex = np.linspace(np.min(predX) - .05*np.min(predX), np.max(predX) + .05*np.max(predX)) #make lines of perfection
+perfLinek = np.linspace(np.min(predK) - .05*np.min(predK), np.max(predK) + .05*np.max(predK))
 
-numPred = np.size(predx)
+numPred = np.size(predX)
 print("Time per prediction: ",(end-start)/numPred,"s") #output normalized time per prediction
 
 #record unscaled data
-unscaledData = pd.DataFrame({"truex":truex,"predx":predx,"truek":truek,"predk":predk})
+unscaledData = pd.DataFrame({"trueX":trueX,"predX":predX,"trueK":trueK,"predK":predK})
 unscaledData.to_csv("unscaledData.csv")
 
 #prediction vs. perfection for X, graph
 plt.figure()
 plt.plot(perfLinex,perfLinex, color = 'red')
-plt.scatter(predx,truex,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
+plt.scatter(predX,trueX,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
 plt.xlabel(r"X (Scikit-Learn)",fontsize = 12)
 plt.ylabel(r"X (IBUU simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
@@ -102,36 +102,52 @@ plt.savefig(f'graphOfX.pdf',format = 'pdf')
 #prediction vs. perfection for K, graph
 plt.figure()
 plt.plot(perfLinek,perfLinek,color = 'red')
-plt.scatter(predk,truek,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
+plt.scatter(predK,trueK,facecolors = 'none',edgecolors = 'black',label = F"R\u00B2: {np.round(score,3)}")
 plt.xlabel(r"K (MeV) (Scikit-Learn)",fontsize = 12)
 plt.ylabel(r"K (MeV) (IBUU simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f'graphOfK.pdf',format = 'pdf')
 
-#find mean of true values in test data set
-meanX = np.sum(true[:,0])/numPred
-meanK = np.sum(true[:,1])/numPred
+#calculate variance of DNN and IBUU predictions
+varTrueX = np.var(trueX,ddof=1)
+varPredX = np.var(predX,ddof=1)
+varTrueK = np.var(trueK,ddof=1)
+varPredK = np.var(predK,ddof=1)
 
-#calculate inversion error for test data set
-dnnError = np.zeros(numPred)
-predCount = np.zeros(numPred)
+#calculate sum ov variances
+sumVarX = varTrueX + varPredX
+sumVarK = varTrueK + varPredK
+
+#initialize arrays for recording DNN error
+dnnErrorX = np.zeros(numPred)
+dnnErrorK = np.zeros(numPred)
+predCount = np.zeros(numPred) #for plotting DNN error as function of run number
+
+#calculate DNN error for each prediction and sum of squared errors
 for i in range(numPred):
-    dnnError[i] = (pred[i,0]/meanX - true[i,0]/meanX)**2 + (pred[i,1]/meanK - true[i,1]/meanK)**2 #all values divided by the mean of the true test data because X and K have different orders of magnitude
+    dnnErrorX[i] = ((predX[i] - trueX[i])**2)/sumVarX
+    dnnErrorK[i] = ((predK[i] - trueK[i])**2)/sumVarK
     predCount[i] = i + 1
 
-#calculate inversion error for test data set
-mseTest = np.sum(dnnError)/numPred
-print("numPred = ",numPred)
-print("MSE_test = ",mseTest)
+#save DNN error in csv
+dnnDF = pd.DataFrame({"dnnErrorX":dnnErrorX,"dnnErrorK":dnnErrorK})
+dnnDF.to_csv(f"dnnError.csv")
 
-#plot error
-plt.figure()
-plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
-plt.xlabel(r"Scikit-Learn Prediction Number",fontsize = 12)
-plt.ylabel(r"DNN Error",fontsize = 12)
-plt.legend(loc = 'upper left',fontsize = 12)
-plt.savefig(f'predError.pdf',format = 'pdf')
+print("numPred = ",numPred)
+
+#plot DNN error
+fig, (axX, axK) = plt.subplots(2,sharex=True) #two subplots with shared x axis
+
+axX.scatter(predCount,dnnErrorX,facecolors='none',edgecolors='red') #make scatter plot for X
+axX.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axX.set_ylabel(F"DNN Error X",fontsize=12) #set y axis title
+
+axK.scatter(predCount,dnnErrorK,facecolors='none',edgecolors='red') #make scatter plot for K
+axK.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axK.set_xlabel(F"Scikit-Learn Prediction Number",fontsize=12) #set x axis title
+axK.set_ylabel(F"DNN Error K",fontsize=12) #set y axis title
+
+fig.savefig(f'predError.pdf',format='pdf') #save plot
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:

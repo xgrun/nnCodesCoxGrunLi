@@ -1,7 +1,6 @@
 """
-title: twoVarLinRegression
-description: code to calculate linear multiple regression with two independent variables
-author: Xavier Grundler
+Author: Xavier Grundler
+Description: Code to calculate linear multiple regression with two independent variables
 """
 
 #import necessary functions

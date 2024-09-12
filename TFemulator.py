@@ -23,13 +23,13 @@ dataset_number = fr"./xytrain90.dat"
 dataset = pd.read_csv(dataset_number, sep = ',', names = columns)
 
 #change and make directory for output
-os.chdir(f"../xavie/tamuc/drLi/nick/allOutputs/TFemu")
+os.chdir(sys.argv[1]) #target directory passed from command line
 now = dt.datetime.now()
 os.makedirs(f"./trial_{now}")
 os.chdir(f"./trial_{now}")
 
 #set print options
-sys.stdout = open("out.txt","w")
+sys.stdout = open("out.log","w")
 np.set_printoptions(threshold=np.inf)
 
 #this scaling removes the mean and scales data to unit variance
@@ -125,26 +125,60 @@ plt.ylabel(r"$v_2$ (IBUU Simulation)",fontsize = 12)
 plt.legend(loc = 'upper left',fontsize = 12)
 plt.savefig(f"graphOfv2.pdf",format="pdf")
 
-#calculate emulator error for test data set
-dnnError = np.zeros(numPred)
-predCount = np.zeros(numPred)
+#calculate variance of DNN and IBUU predictions
+varTrueF1 = np.var(trueF1,ddof=1)
+varPredF1 = np.var(predF1,ddof=1)
+varTruev2 = np.var(truev2,ddof=1)
+varPredv2 = np.var(predv2,ddof=1)
+
+#calculate sum of variances
+sumVarF1 = varTrueF1 + varPredF1
+sumVarv2 = varTruev2 + varPredv2
+
+#initialize arrays for recording DNN error
+dnnErrorF1 = np.zeros(numPred)
+dnnErrorv2 = np.zeros(numPred)
+predCount = np.zeros(numPred) #for plotting DNN error as function of run number
+
+#initialize MSE
+mseF1 = 0
+msev2 = 0
+
+#calculate DNN error for each prediction and sum of squared errors
 for i in range(numPred):
-    dnnError[i] = (pred[i,0] - true[i,0])**2 + (pred[i,1] - true[i,1])**2
+    dnnErrorF1[i] = ((predF1[i] - trueF1[i])**2)/sumVarF1
+    dnnErrorv2[i] = ((predv2[i] - truev2[i])**2)/sumVarv2
+    mseF1 += (predF1[i] - trueF1[i])**2
+    msev2 += (predv2[i] - truev2[i])**2
     predCount[i] = i + 1
 
-#calculate MSE for test set
-mseTest = np.sum(dnnError)/numPred
-print("numPred = ",numPred)
-print("MSE_test = ",mseTest)
+#save DNN error in csv
+dnnDF = pd.DataFrame({"dnnErrorF1":dnnErrorF1,"dnnErrorv2":dnnErrorv2})
+dnnDF.to_csv(f"dnnError.csv")
 
-#plot error
-plt.figure()
-plt.ticklabel_format(axis='y',style='sci',scilimits=(0,0))
-plt.scatter(predCount,dnnError,facecolors = 'none',edgecolors = 'red',label = F"MSE: {np.format_float_scientific(mseTest,precision=2)}")
-plt.xlabel(r"TensorFlow Prediction Number",fontsize = 12)
-plt.ylabel(r"DNN Error",fontsize = 12)
-plt.legend(loc = 'upper left',fontsize = 12)
-plt.savefig(f'predError.pdf',format = 'pdf')
+#finish MSE calculation
+mseF1 /= numPred
+msev2 /= numPred
+
+print("numPred = ",numPred)
+print("F1 MSE = ",mseF1)
+print("v2 MSE = ",msev2)
+
+#plot DNN error
+fig, (axF1, axv2) = plt.subplots(2,sharex=True) #two subplots with shared x axis
+
+axF1.scatter(predCount,dnnErrorF1,facecolors='none',edgecolors='red',label=F'$F_1$ MSE: {np.format_float_scientific(mseF1,precision=2)}') #make scatter plot for F1
+axF1.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axF1.set_ylabel(F"DNN Error $F_1$",fontsize=12) #set y axis title
+axF1.legend(loc='upper left',fontsize=12) #set location of legend
+
+axv2.scatter(predCount,dnnErrorv2,facecolors='none',edgecolors='red',label=F'$v_2$ MSE: {np.format_float_scientific(msev2,precision=2)}') #make scatter plot for v2
+axv2.ticklabel_format(axis='y',style='sci',scilimits=(0,0)) #use scientific notation for y axis
+axv2.set_xlabel(F"TensorFlow Prediction Number",fontsize=12) #set x axis title
+axv2.set_ylabel(F"DNN Error $v_2$",fontsize=12) #set y axis title
+axv2.legend(loc='upper left',fontsize=12) #set location of legend
+
+fig.savefig(f'predError.pdf',format='pdf') #save plot
 
 #write the configuration of the model
 with open("modelConfiguration.txt","w") as modConfig:
